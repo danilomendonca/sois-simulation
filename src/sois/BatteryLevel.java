@@ -1,14 +1,11 @@
 package sois;
 
-import java.util.Map;
-
 import peersim.util.ExtendedRandom;
 import peersim.vector.SingleValueHolder;
 
 public class BatteryLevel extends SingleValueHolder{
 	
 	ExtendedRandom r;
-	Map<Long, Double> levels;
 
 	public BatteryLevel() {
 		super("");
@@ -22,5 +19,11 @@ public class BatteryLevel extends SingleValueHolder{
 	
 	public void initValue(){
 		setValue(r.nextDouble());
+	}
+
+	private static final float DELTA_USE = 0.8F;
+	
+	public void use() {
+		setValue(getValue() * DELTA_USE);
 	}
 }

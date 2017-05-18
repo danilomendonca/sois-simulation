@@ -34,7 +34,7 @@ control.avgo example.aggregation.AverageObserver
 control.avgo.protocol avg
 
 control.dnet DynamicNetwork
-control.dnet.add -1
+control.dnet.add 1
 control.dnet.minsize 2
 #control.dnet.from 5
 #control.dnet.until 10

@@ -127,6 +127,7 @@ protected void add(int n)
 		for (int j = 0; j < inits.length; ++j) {
 			inits[j].initialize(newnode);
 		}
+		System.out.println("Node added:" + newnode.getID());
 		Network.add(newnode);
 	}
 }

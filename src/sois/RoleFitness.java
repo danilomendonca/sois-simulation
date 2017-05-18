@@ -6,6 +6,7 @@ import java.util.List;
 
 import peersim.cdsim.CDProtocol;
 import peersim.config.FastConfig;
+import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
@@ -24,18 +25,39 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	 */
 	@Override
 	public void nextCycle(Node node, int protocolID) {
-		NodeElection.addNode(node);
+		
+		if(NodeElection.hasNode(node)){
+			NodeElection.addNode(node);
+			joinGroup(node, protocolID);
+		}
+		
 		setValue(evalFitnessFunction(node));
 		List<Node> currentPeers = getCurrentPeers();
 		
 		checkVacancy(node, currentPeers, protocolID);
-		checkResignation(node);
+		checkResignation(node, protocolID);
 		checkChallenge(node);
 		
+		playRole(node);
 		
 		NodeElection.get(node).setPeers(currentPeers);
 	}
 	
+	private void joinGroup(Node node, int protocolID){
+		int linkableID = FastConfig.getLinkable(protocolID);
+        Linkable linkable = (Linkable) node.getProtocol(linkableID);
+        if (linkable.degree() > 0) {
+            Node peer = linkable.getNeighbor(CommonState.r.nextInt(linkable
+                    .degree()));
+            NodeElection.get(node).clone(NodeElection.get(peer));
+        }
+	}
+	
+	private void playRole(Node node) {
+		if(NodeElection.get(node).isElected())
+			NodeElection.get(node).batteryLevel.use();
+	}
+
 	private enum EventType{
 		VACANCY,
 		RESIGNATION,
@@ -51,15 +73,6 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
             // Failure handling
             if (!peer.isUp())
                 continue;
-            
-    		/*((Transport)node.getProtocol(FastConfig.getTransport(protocolID))).
-			send(
-				node,
-				peer,
-				EventType.VACANCY,
-				protocolID
-			);*/
-            
             RoleFitness peerProtocol = (RoleFitness) peer.getProtocol(protocolID);
             peerProtocol.handleVacancy(peer, protocolID);//should call a sendSomething method to simulate a network call
         }
@@ -73,9 +86,34 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	}
 	
 	private void handleVacancy(Node node, int protocolID) {
-		if(!NodeElection.get(node).isVacancy()){
-			NodeElection.get(node).startVacancyElection();
+		if(!NodeElection.get(node).isInElection()){
+			NodeElection.get(node).startElection();
 		}
+	}
+	
+	private void triggerResignation(Node node, int protocolID){
+		int linkableID = FastConfig.getLinkable(protocolID);
+        Linkable linkable = (Linkable) node.getProtocol(linkableID);
+        handleResignation(node, protocolID);
+        for (int i=0; i<linkable.degree(); i++) {
+            Node peer = linkable.getNeighbor(i);
+            // Failure handling
+            if (!peer.isUp())
+                continue;
+            RoleFitness peerProtocol = (RoleFitness) peer.getProtocol(protocolID);
+            peerProtocol.handleResignation(peer, protocolID);
+        }
+        joinElection(node, protocolID);
+	}
+	
+	private void handleResignation(Node node, int protocolID) {
+		if(!NodeElection.get(node).isInElection()){
+			NodeElection.get(node).startElection();
+		}
+	}
+
+	private void triggerChallenge(Node node, Node electedNode){
+		
 	}
 	
 	private void joinElection(Node node, int protocolID){
@@ -92,18 +130,10 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
             NodeElection.get(peer).updateFS(node, FS_a);
         }
 	}
-
-	private void triggerResignation(Node electedNode){
-		System.out.println(this.value);
-	}
-	
-	private void triggerChallenge(Node node, Node electedNode){
-		System.out.println(this.value);
-	}
 	
 	private void checkVacancy(Node node, List <Node> currentPeers, int protocolId){
 		NodeElection nodeData = NodeElection.get(node);
-		if(!nodeData.isVacancy())
+		if(!nodeData.isInElection())
 			if(!nodeData.electedNodes.isEmpty()){				
 				Node electedNode = nodeData.electedNodes.keySet().iterator().next();
 				List<Node> leavers = nodeData.getLeavers(currentPeers);
@@ -122,14 +152,19 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	
 	public static final double DELTA_MINUS = 0.8;
 	
-	private void checkResignation(Node node){
+	private void checkResignation(Node node, int protocolID){
 		NodeElection nodeData = NodeElection.get(node);
-		if(nodeData.electedNodes.containsKey(node)){
-			Double FS_e = nodeData.electedNodes.get(node);
-			Double FS_a = evalFitnessFunction(node);
-			if(FS_a < FS_e * DELTA_MINUS)
-				triggerResignation(node);
-		}
+		if(!nodeData.isInElection()){
+			if(nodeData.electedNodes.containsKey(node)){
+				Double FS_e = nodeData.electedNodes.get(node);
+				Double FS_a = evalFitnessFunction(node);
+				if(FS_a < FS_e * DELTA_MINUS){
+					System.out.println("Node " + node.getID() + ": has resigned.");
+					triggerResignation(node, protocolID);
+				}
+			}
+		}else
+			joinElection(node, protocolID);
 	}
 
 	public static final double DELTA_PLUS = 1.2;

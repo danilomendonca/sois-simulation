@@ -13,7 +13,7 @@ public class NodeElection {
 	private static Map<Node, NodeElection> nodesData = new HashMap<>();;
 	
 	public static void addNode(Node node){
-		if(!nodesData.containsKey(node))
+		if(!hasNode(node))
 			nodesData.put(node, new NodeElection(node));
 	}
 	
@@ -30,7 +30,7 @@ public class NodeElection {
 	Map <Node, Double> fitnessScores;
 	Map <Node, Double> electedNodes;
 	BatteryLevel batteryLevel;
-	boolean vacancy = false;
+	boolean inElection = false;
 	
 	public NodeElection(Node node){
 		this.node = node;
@@ -51,11 +51,11 @@ public class NodeElection {
 		return fitnessScores.size() == Network.size();
 	}
 	
-	public void startVacancyElection() {
-		setVacancy(true);
+	public void startElection() {
+		setInElection(true);
 		fitnessScores.clear();
 		electedNodes.clear();
-		System.out.println("Node " + node.getID() + ": Vacancy election started");
+		System.out.println("Node " + node.getID() + ": Election started");
 	}
 	
 	public void finishElection(){
@@ -64,7 +64,7 @@ public class NodeElection {
 			if(winner == null || fitnessScores.get(node) > fitnessScores.get(winner))
 				winner = node;
 		electedNodes.put(winner, fitnessScores.get(winner));
-		setVacancy(false);
+		setInElection(false);
 		System.out.println("Node " + node.getID() + ": We have a winner!!! Node " + winner.getID() + " with FS_e " + fitnessScores.get(winner));
 	}
 
@@ -86,12 +86,12 @@ public class NodeElection {
 		return newcomers;
 	}
 	
-	public boolean isVacancy() {
-		return vacancy;
+	public boolean isInElection() {
+		return inElection;
 	}
 
-	public void setVacancy(boolean vacancy) {
-		this.vacancy = vacancy;
+	public void setInElection(boolean vacancy) {
+		this.inElection = vacancy;
 	}
 
 	public List<Node> getPeers() {
@@ -100,5 +100,36 @@ public class NodeElection {
 
 	public void setPeers(List<Node> peers) {
 		this.peers = peers;
+	}
+	
+	public Map<Node, Double> getFitnessScores() {
+		return fitnessScores;
+	}
+
+	public void setFitnessScores(Map<Node, Double> fitnessScores) {
+		this.fitnessScores = fitnessScores;
+	}
+
+	public Map<Node, Double> getElectedNodes() {
+		return electedNodes;
+	}
+
+	public void setElectedNodes(Map<Node, Double> electedNodes) {
+		this.electedNodes = electedNodes;
+	}
+
+	public boolean isElected() {
+		return electedNodes.containsKey(node);
+	}
+
+	public static boolean hasNode(Node node) {
+		return nodesData.containsKey(node);
+	}
+
+	public void clone(NodeElection peer) {
+		peers = new ArrayList<>(peer.getPeers());
+		fitnessScores = new HashMap <Node, Double> (peer.getFitnessScores());
+		electedNodes = new HashMap <Node, Double> (peer.getElectedNodes());
+		inElection = peer.isInElection();
 	}
 }
