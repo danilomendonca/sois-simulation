@@ -21,7 +21,7 @@ public class BatteryLevel extends SingleValueHolder{
 		setValue(r.nextDouble());
 	}
 
-	private static final float DELTA_USE = 0.8F;
+	private static final float DELTA_USE = 1F;
 	
 	public void use() {
 		setValue(getValue() * DELTA_USE);

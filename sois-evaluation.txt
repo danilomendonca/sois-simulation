@@ -1,13 +1,16 @@
 # PEERSIM EXAMPLE 1
 
+SIZE 10
+ADD -1
+MIN_SIZE 2
+MAX_SIZE 10
+
 random.seed 1234567890
 simulation.cycles 10
 
-control.init sois.InitNodesData
-
 control.shf Shuffle
 
-network.size 10
+network.size SIZE
  
 protocol.lnk IdleProtocol
 
@@ -16,7 +19,7 @@ protocol.avg.linkable lnk
 
 init.rnd WireKOut
 init.rnd.protocol lnk
-init.rnd.k 9
+init.rnd.k SIZE - 1
 
 init.peak example.aggregation.PeakDistributionInitializer
 init.peak.value 10000
@@ -33,9 +36,14 @@ include.init rnd lin
 control.avgo example.aggregation.AverageObserver
 control.avgo.protocol avg
 
-control.dnet DynamicNetwork
-control.dnet.add 1
-control.dnet.minsize 2
+control.1 DynamicNetwork
+control.1.protocol lnk
+control.1.add ADD
+control.1.minsize MIN_SIZE
+control.1.maxsize MAX_SIZE
 #control.dnet.from 5
 #control.dnet.until 10
+
+control.2 sois.InitNodesData
+control.2.protocol lnk
 

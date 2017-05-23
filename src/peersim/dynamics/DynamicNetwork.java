@@ -89,6 +89,17 @@ private static final String PAR_MAX = "maxsize";
  */
 private static final String PAR_MIN = "minsize";
 
+
+/**
+ * The protocol to operate on.
+ * 
+ * @config
+ */
+private static final String PAR_PROT = "protocol";
+
+/** Protocol identifier, obtained from config property {@link #PAR_PROT}. */
+private final int pid;
+
 // --------------------------------------------------------------------------
 // Fields
 // --------------------------------------------------------------------------
@@ -129,6 +140,19 @@ protected void add(int n)
 		}
 		System.out.println("Node added:" + newnode.getID());
 		Network.add(newnode);
+		addEdgesToNewNode(newnode);
+	}
+}
+
+private void addEdgesToNewNode(Node node){
+	
+    Linkable linkable = (Linkable) node.getProtocol(pid);
+	for(int i = 0; i < Network.size(); i++){
+		if(!Network.get(i).equals(node)){
+			linkable.addNeighbor(Network.get(i));
+			Linkable linkableFromPeer = (Linkable) Network.get(i).getProtocol(pid);
+			linkableFromPeer.addNeighbor(node);
+		}
 	}
 }
 
@@ -172,6 +196,7 @@ public DynamicNetwork(String prefix)
 	}
 	maxsize=Configuration.getInt(prefix+"."+PAR_MAX,Integer.MAX_VALUE);
 	minsize = Configuration.getInt(prefix + "." + PAR_MIN, 0);
+	pid = Configuration.getPid(prefix + "." + PAR_PROT);
 }
 
 // --------------------------------------------------------------------------

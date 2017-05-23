@@ -18,8 +18,11 @@
 
 package sois;
 
+import peersim.config.Configuration;
 import peersim.core.Control;
+import peersim.core.Linkable;
 import peersim.core.Network;
+import peersim.core.Node;
 import peersim.util.IncrementalStats;
 
 /**
@@ -31,18 +34,47 @@ import peersim.util.IncrementalStats;
  */
 public class InitNodesData implements Control {
 
-	public InitNodesData(String name) {}
+	/**
+     * The protocol to operate on.
+     * 
+     * @config
+     */
+    private static final String PAR_PROT = "protocol";
+
+    /** Protocol identifier, obtained from config property {@link #PAR_PROT}. */
+    private final int pid;
+    
+	public InitNodesData(String name) {
+		pid = Configuration.getPid(name + "." + PAR_PROT);
+	}
 
     public boolean execute() {
-
+        
     	for(int i = 0; i < Network.size(); i++){
-    		NodeElection.addNode(Network.get(i));
-    		try {
-				Thread.sleep(100);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
+    		Node node = Network.get(i);
+    		if(!NodeElection.hasNode(node)){
+    			NodeElection.addNode(node);
+    			try {
+    				Thread.sleep(100);
+    			} catch (InterruptedException e) {
+    				e.printStackTrace();
+    			}
+    		}else
+    			if(((Linkable)node.getProtocol(pid)).degree() == 0)
+    				addEdgesToNewNode(node);
+    			
     	}
         return false;
+    }
+    
+    private void addEdgesToNewNode(Node node){
+    	
+    	//int linkableID = FastConfig.getLinkable(pid);
+        Linkable linkable = (Linkable) node.getProtocol(pid);
+        
+    	for(int i = 0; i < Network.size(); i++){
+    		if(!Network.get(i).equals(node))
+    			linkable.addNeighbor(Network.get(i));
+    	}
     }
 }

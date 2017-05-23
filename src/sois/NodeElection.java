@@ -10,7 +10,7 @@ import peersim.core.Node;
 
 public class NodeElection {
 	
-	private static Map<Node, NodeElection> nodesData = new HashMap<>();;
+	private static Map<Node, NodeElection> nodesData = new HashMap<>();;	
 	
 	public static void addNode(Node node){
 		if(!hasNode(node))
@@ -30,7 +30,9 @@ public class NodeElection {
 	Map <Node, Double> fitnessScores;
 	Map <Node, Double> electedNodes;
 	BatteryLevel batteryLevel;
+
 	boolean inElection = false;
+	boolean newInGroup = true;
 	
 	public NodeElection(Node node){
 		this.node = node;
@@ -40,10 +42,10 @@ public class NodeElection {
 		batteryLevel = new BatteryLevel();
 	}
 	
-	public void updateFS(Node updatedNode, Double FS_a) {
-		//System.out.println("Node " + node.getID() + ": FS for " + updatedNode.getID() + " have been updated with " + FS_a);
+	public void receiveFS(Node updatedNode, Double FS_a) {
+		System.out.println("Node " + node.getID() + ": FS for " + updatedNode.getID() + " have been updated with " + FS_a);
 		fitnessScores.put(updatedNode, FS_a);
-		if(allScored())
+		if(isInElection() && allScored())
         	finishElection();
 	}
 	
@@ -80,7 +82,7 @@ public class NodeElection {
 	public List<Node> getNewcomers(List<Node> currentPeers){
 		List<Node> newcomers = new ArrayList<Node>();
 		for(Node peer : currentPeers){
-			if(!peers.contains(peer))
+			if(peer != null && !peers.contains(peer))
 				newcomers.add(peer);
 		}
 		return newcomers;
@@ -125,8 +127,26 @@ public class NodeElection {
 	public static boolean hasNode(Node node) {
 		return nodesData.containsKey(node);
 	}
+	
+	public Node getNode() {
+		return node;
+	}
 
-	public void clone(NodeElection peer) {
+	public void setNode(Node node) {
+		this.node = node;
+	}
+	
+	
+
+	public boolean isNewInGroup() {
+		return newInGroup;
+	}
+
+	public void setNewInGroup(boolean newInGroup) {
+		this.newInGroup = newInGroup;
+	}
+
+	public void copy(NodeElection peer) {
 		peers = new ArrayList<>(peer.getPeers());
 		fitnessScores = new HashMap <Node, Double> (peer.getFitnessScores());
 		electedNodes = new HashMap <Node, Double> (peer.getElectedNodes());
