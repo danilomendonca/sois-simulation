@@ -13,9 +13,9 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.vector.SingleValueHolder;
 
-public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProtocol{
+public class RoleElection extends SingleValueHolder implements CDProtocol, EDProtocol{
 		
-	public RoleFitness(String prefix) {
+	public RoleElection(String prefix) {
 		super(prefix);
 	}
 
@@ -25,13 +25,11 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	@Override
 	public void nextCycle(Node node, int protocolID) {
 		List<Node> currentPeers = getCurrentPeers();
-		
-		//if(NodeElection.hasNode(node)){
-		//	NodeElection.addNode(node);
-		//}
 			
-		NodeElection nodeData = NodeElection.get(node);
-		setValue(evalFitnessFunction(node));
+		NodeData nodeData = NodeData.get(node);
+		
+		incrementGroupTime();
+		NodeData.get(node).contributionLevel.use(CONTRIBUTION_DELTA);
 
 		if(((int) CommonState.getTime()) == 0 || 
 				!nodeData.isNewInGroup())
@@ -42,13 +40,15 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 
 		nodeData.setNewInGroup(false);
 		
-		if(NodeElection.get(node).isElected())
+		if(NodeData.get(node).isElected())
 			playRole(node);
+		
+		System.out.println(getContributionFactor(nodeData));
 		
 		nodeData.setPeers(currentPeers);
 	}
 	
-	private void checkForElectionConditions(NodeElection nodeData, List<Node> currentPeers, int protocolID){
+	private void checkForElectionConditions(NodeData nodeData, List<Node> currentPeers, int protocolID){
 		checkNewMember(nodeData, currentPeers, protocolID);
 		checkVacancy(nodeData, currentPeers, protocolID);
 		checkResignation(nodeData, protocolID);
@@ -56,23 +56,41 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	}
 	
 	//TODO: should not base on the elected node, as when a new member joins the position may happen to be vacant
-	private void checkNewMember(NodeElection nodeData, List<Node> currentPeers, int protocolID) {
+	private void checkNewMember(NodeData nodeData, List<Node> currentPeers, int protocolID) {
 		if(nodeData.isElected()){
 			List<Node> newComers = nodeData.getNewcomers(currentPeers);
 			if(!newComers.isEmpty())
 				for(Node newPeer : newComers){
-					RoleFitness peerProtocol = (RoleFitness) newPeer.getProtocol(protocolID);  
+					RoleElection peerProtocol = (RoleElection) newPeer.getProtocol(protocolID);  
 					peerProtocol.receiveRegistry(newPeer, nodeData, protocolID);
 				}
 		}
 	}	
 	
+	private static final float BATTERY_DRAIN_DELTA = 0F;//1% each use
+	private static final float CONTRIBUTION_DELTA = 1F;//1 unit each use
+	
 	private void playRole(Node node) {
-		NodeElection.get(node).batteryLevel.use();
+		NodeData.get(node).batteryLevel.use(BATTERY_DRAIN_DELTA);
+		NodeData.get(node).contributionLevel.use(-0.1F);
 	}
 	
-	private void receiveRegistry(Node thisNode, NodeElection nodeDataToBeCopied, int protocolID){
-		NodeElection thisNodeData = NodeElection.get(thisNode);
+	private void incrementGroupTime() {
+		setValue(getValue() + CONTRIBUTION_DELTA);
+	}
+	
+	private double getContributionFactor(NodeData nodeData){		
+		return (nodeData.contributionLevel.getValue() / getValue());
+	}
+	
+	private double evalFitnessFunction(Node node){		
+		NodeData nodeData = NodeData.get(node);
+		return nodeData.batteryLevel.getValue() *
+				getContributionFactor(nodeData);
+	}
+	
+	private void receiveRegistry(Node thisNode, NodeData nodeDataToBeCopied, int protocolID){
+		NodeData thisNodeData = NodeData.get(thisNode);
 		thisNodeData.copy(nodeDataToBeCopied);
 		checkForElectionConditions(thisNodeData, getCurrentPeers(), protocolID);
 	}
@@ -86,14 +104,14 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	private void triggerVacancy(Node node, int protocolID){
 		int linkableID = FastConfig.getLinkable(protocolID);
         Linkable linkable = (Linkable) node.getProtocol(linkableID);
-        handleVacancy(NodeElection.get(node), protocolID);
+        handleVacancy(NodeData.get(node), protocolID);
         for (int i=0; i<linkable.degree(); i++) {
             Node peer = linkable.getNeighbor(i);
             // Failure handling
             if (!peer.isUp())
                 continue;
-            RoleFitness peerProtocol = (RoleFitness) peer.getProtocol(protocolID);
-            peerProtocol.handleVacancy(NodeElection.get(peer), protocolID);//should call a sendSomething method to simulate a network call
+            RoleElection peerProtocol = (RoleElection) peer.getProtocol(protocolID);
+            peerProtocol.handleVacancy(NodeData.get(peer), protocolID);//should call a sendSomething method to simulate a network call
         }
         joinElection(node, protocolID);
 	}
@@ -101,10 +119,10 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	@Override
 	public void processEvent(Node node, int protocolID, Object event) {
 		if((EventType) event == EventType.VACANCY)
-			handleVacancy(NodeElection.get(node), protocolID);
+			handleVacancy(NodeData.get(node), protocolID);
 	}
 	
-	private void handleVacancy(NodeElection nodeData, int protocolID) {
+	private void handleVacancy(NodeData nodeData, int protocolID) {
 		if(!nodeData.isInElection()){
 			nodeData.startElection();
 		}
@@ -119,15 +137,15 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
             // Failure handling
             if (!peer.isUp())
                 continue;
-            RoleFitness peerProtocol = (RoleFitness) peer.getProtocol(protocolID);
+            RoleElection peerProtocol = (RoleElection) peer.getProtocol(protocolID);
             peerProtocol.handleResignation(peer, protocolID);
         }
         joinElection(node, protocolID);
 	}
 	
 	private void handleResignation(Node node, int protocolID) {
-		if(!NodeElection.get(node).isInElection()){
-			NodeElection.get(node).startElection();
+		if(!NodeData.get(node).isInElection()){
+			NodeData.get(node).startElection();
 		}
 	}
 
@@ -139,18 +157,18 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 		int linkableID = FastConfig.getLinkable(protocolID);
         Linkable linkable = (Linkable) node.getProtocol(linkableID);
         Double FS_a = evalFitnessFunction(node);
-        NodeElection.get(node).receiveFS(node, FS_a);
+        NodeData.get(node).receiveFS(node, FS_a);
         for (int i=0; i<linkable.degree(); i++) {
             Node peer = linkable.getNeighbor(i);
             // Failure handling
             if (!peer.isUp())
                 continue;
 
-            NodeElection.get(peer).receiveFS(node, FS_a);
+            NodeData.get(peer).receiveFS(node, FS_a);
         }
 	}
 	
-	private void checkVacancy(NodeElection nodeData, List <Node> currentPeers, int protocolId){
+	private void checkVacancy(NodeData nodeData, List <Node> currentPeers, int protocolId){
 		Node node = nodeData.getNode();
 		if(!nodeData.isInElection()){
 			if(!nodeData.electedNodes.isEmpty()){				
@@ -169,7 +187,7 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	
 	public static final double DELTA_MINUS = 0.8;
 	
-	private void checkResignation(NodeElection nodeData, int protocolID){
+	private void checkResignation(NodeData nodeData, int protocolID){
 		Node node = nodeData.getNode();
 		if(!nodeData.isInElection()){
 			if(nodeData.electedNodes.containsKey(node)){
@@ -185,7 +203,7 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 
 	public static final double DELTA_PLUS = 1.2;
 
-	private void checkChallenge(NodeElection nodeData){
+	private void checkChallenge(NodeData nodeData){
 		Node node = nodeData.getNode();
 		for(Node electedNode : nodeData.electedNodes.keySet()){
 			if(node.equals(electedNode))
@@ -201,10 +219,5 @@ public class RoleFitness extends SingleValueHolder implements CDProtocol, EDProt
 	private List<Node> getCurrentPeers(){
 		return new ArrayList<Node>(Arrays.asList(Network.nodes()));
 	}	
-	
-	private double evalFitnessFunction(Node node){
-		NodeElection nodeData = NodeElection.get(node);
-		return nodeData.batteryLevel.getValue();
-	}
 
 }

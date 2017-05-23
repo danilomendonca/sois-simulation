@@ -52,8 +52,8 @@ public class InitNodesData implements Control {
         
     	for(int i = 0; i < Network.size(); i++){
     		Node node = Network.get(i);
-    		if(!NodeElection.hasNode(node)){
-    			NodeElection.addNode(node);
+    		if(!NodeData.hasNode(node)){
+    			NodeData.addNode(node);
     			try {
     				Thread.sleep(100);
     			} catch (InterruptedException e) {

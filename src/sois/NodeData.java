@@ -8,16 +8,16 @@ import java.util.Map;
 import peersim.core.Network;
 import peersim.core.Node;
 
-public class NodeElection {
+public class NodeData {
 	
-	private static Map<Node, NodeElection> nodesData = new HashMap<>();;	
+	private static Map<Node, NodeData> nodesData = new HashMap<>();;	
 	
 	public static void addNode(Node node){
 		if(!hasNode(node))
-			nodesData.put(node, new NodeElection(node));
+			nodesData.put(node, new NodeData(node));
 	}
 	
-	public static NodeElection get(Node node){
+	public static NodeData get(Node node){
 		return nodesData.get(node);
 	}
 	
@@ -30,20 +30,22 @@ public class NodeElection {
 	Map <Node, Double> fitnessScores;
 	Map <Node, Double> electedNodes;
 	BatteryLevel batteryLevel;
+	ContributionLevel contributionLevel;
 
 	boolean inElection = false;
 	boolean newInGroup = true;
 	
-	public NodeElection(Node node){
+	public NodeData(Node node){
 		this.node = node;
 		peers = new ArrayList<>();
 		fitnessScores = new HashMap <Node, Double> ();
 		electedNodes = new HashMap <Node, Double> ();
 		batteryLevel = new BatteryLevel();
+		contributionLevel= new ContributionLevel();
 	}
 	
 	public void receiveFS(Node updatedNode, Double FS_a) {
-		System.out.println("Node " + node.getID() + ": FS for " + updatedNode.getID() + " have been updated with " + FS_a);
+		//System.out.println("Node " + node.getID() + ": FS for " + updatedNode.getID() + " have been updated with " + FS_a);
 		fitnessScores.put(updatedNode, FS_a);
 		if(isInElection() && allScored())
         	finishElection();
@@ -146,7 +148,7 @@ public class NodeElection {
 		this.newInGroup = newInGroup;
 	}
 
-	public void copy(NodeElection peer) {
+	public void copy(NodeData peer) {
 		peers = new ArrayList<>(peer.getPeers());
 		fitnessScores = new HashMap <Node, Double> (peer.getFitnessScores());
 		electedNodes = new HashMap <Node, Double> (peer.getElectedNodes());
