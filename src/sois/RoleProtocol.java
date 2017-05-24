@@ -13,11 +13,13 @@ import peersim.core.Node;
 import peersim.edsim.EDProtocol;
 import peersim.vector.SingleValueHolder;
 
-public class RoleElection extends SingleValueHolder implements CDProtocol, EDProtocol{
+public class RoleProtocol extends SingleValueHolder implements CDProtocol, EDProtocol{
 		
-	public RoleElection(String prefix) {
+	public RoleProtocol(String prefix) {
 		super(prefix);
 	}
+	
+	public static final boolean SOIS_ENABLED = true;
 
 	/**
 	 * Should update the value of the FS
@@ -29,18 +31,30 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		NodeData nodeData = NodeData.get(node);
 		incrementGroupTime();			
 
-		if(isFirstCycle() || !nodeData.isNewInGroup())
-			if(nodeData.isInElection())			
-				joinElection(node, protocolID);
-			else{
-				checkForElectionConditions(nodeData, currentPeers, protocolID);
-				if(NodeData.get(node).isElected())
-					playRole(nodeData);
-			}
-
+		if(SOIS_ENABLED)
+			performSOISBehavior(nodeData, currentPeers, protocolID);
+		else
+			performClientServerBehavior(nodeData, currentPeers, protocolID);
+		
 		tickLevels(nodeData);
 		nodeData.setNewInGroup(false);
 		nodeData.setPeers(currentPeers);
+	}
+	
+	private void performClientServerBehavior(NodeData nodeData, List<Node> currentPeers, int protocolID){
+		if(evalRRC(nodeData))
+			incrementContributionCount(nodeData);
+	}
+	
+	private void performSOISBehavior(NodeData nodeData, List<Node> currentPeers, int protocolID){
+		if(isFirstCycle() || !nodeData.isNewInGroup())
+			if(nodeData.isInElection())			
+				joinElection(nodeData.getNode(), protocolID);
+			else{
+				checkForElectionConditions(nodeData, currentPeers, protocolID);
+				if(nodeData.isElected())
+					playRole(nodeData);
+			}
 	}
 	
 	private void tickLevels(NodeData nodeData){
@@ -60,7 +74,7 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 			List<Node> newComers = nodeData.getNewcomers(currentPeers);
 			if(!newComers.isEmpty())
 				for(Node newPeer : newComers){
-					RoleElection peerProtocol = (RoleElection) newPeer.getProtocol(protocolID);  
+					RoleProtocol peerProtocol = (RoleProtocol) newPeer.getProtocol(protocolID);  
 					peerProtocol.receiveRegistry(newPeer, nodeData, protocolID);
 				}
 		}
@@ -96,6 +110,24 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		return 1;//(nodeData.contributionLevel.getValue() / getValue());
 	}
 	
+	private boolean evalRRC_CS(NodeData nodeData){
+		boolean rrc = 
+				nodeData.gpsStatus.getValue() == GPSStatus.GPS_ON &&
+				nodeData.batteryLevel.getValue() > 30 &&
+				(nodeData.internetStatus.getValue() == InternetStatus.INTERNET_CELL ||
+				nodeData.internetStatus.getValue() == InternetStatus.INTERNET_WIFI);
+		
+		return rrc;
+	}
+	
+	private boolean evalRRC(NodeData nodeData){
+		boolean rrc = 
+				nodeData.gpsStatus.getValue() == GPSStatus.GPS_ON &&
+				nodeData.batteryLevel.getValue() > 30;
+		
+		return rrc;
+	}
+	
 	private double evalFitnessFunction(Node node){		
 		NodeData nodeData = NodeData.get(node);
 		double FF =  
@@ -128,7 +160,7 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
             // Failure handling
             if (!peer.isUp())
                 continue;
-            RoleElection peerProtocol = (RoleElection) peer.getProtocol(protocolID);
+            RoleProtocol peerProtocol = (RoleProtocol) peer.getProtocol(protocolID);
             peerProtocol.handleVacancy(NodeData.get(peer), protocolID);//should call a sendSomething method to simulate a network call
         }
         joinElection(node, protocolID);
@@ -155,7 +187,7 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
             // Failure handling
             if (!peer.isUp())
                 continue;
-            RoleElection peerProtocol = (RoleElection) peer.getProtocol(protocolID);
+            RoleProtocol peerProtocol = (RoleProtocol) peer.getProtocol(protocolID);
             peerProtocol.handleResignation(peer, protocolID);
         }
         joinElection(node, protocolID);
