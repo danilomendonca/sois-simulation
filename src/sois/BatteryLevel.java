@@ -1,24 +1,18 @@
 package sois;
 
-import peersim.util.ExtendedRandom;
+import peersim.core.CommonState;
 import peersim.vector.SingleValueHolder;
 
 public class BatteryLevel extends SingleValueHolder{
 	
-	ExtendedRandom r;
-
 	public BatteryLevel() {
 		super("");
-		initRandom();
 		initValue();
 	}
 	
-	private void initRandom(){
-		this.r = new ExtendedRandom(System.currentTimeMillis());
-	}
-	
 	public void initValue(){
-		setValue(r.nextDouble());
+		setValue(Math.max(0.1, CommonState.r.nextDouble()));
+
 	}
 
 	public void use(float delta) {

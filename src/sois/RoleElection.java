@@ -27,9 +27,7 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		List<Node> currentPeers = getCurrentPeers();
 			
 		NodeData nodeData = NodeData.get(node);
-		
-		incrementGroupTime();
-		incrementContributionTime(nodeData);		
+		incrementGroupTime();			
 
 		if(isFirstCycle() || !nodeData.isNewInGroup())
 			if(nodeData.isInElection())			
@@ -37,11 +35,16 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 			else{
 				checkForElectionConditions(nodeData, currentPeers, protocolID);
 				if(NodeData.get(node).isElected())
-					playRole(node);
+					playRole(nodeData);
 			}
 
+		tickLevels(nodeData);
 		nodeData.setNewInGroup(false);
 		nodeData.setPeers(currentPeers);
+	}
+	
+	private void tickLevels(NodeData nodeData){
+		nodeData.gpsLevel.tickValue();		
 	}
 	
 	private void checkForElectionConditions(NodeData nodeData, List<Node> currentPeers, int protocolID){
@@ -63,19 +66,26 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		}
 	}	
 	
-	private static final float BATTERY_DRAIN_DELTA = 0.01F;//1% each use
 	
-	private void playRole(Node node) {
-		NodeData.get(node).batteryLevel.use(BATTERY_DRAIN_DELTA);		
+	private void playRole(NodeData nodeData) {
+		incrementContributionCount(nodeData);
+		drainBattery(nodeData);
 	}
+	
 	private static final float CONTRIBUTION_DELTA = 1F;//1 unit each use
 	
 	private void incrementGroupTime() {
 		setValue(getValue() + CONTRIBUTION_DELTA);
 	}
 	
-	private void incrementContributionTime(NodeData nodeData) {
+	private void incrementContributionCount(NodeData nodeData) {
 		nodeData.increamentContribution(CONTRIBUTION_DELTA);
+	}
+	
+	private static final float BATTERY_DRAIN_DELTA = 0.01F;//1% each use
+	
+	private void drainBattery(NodeData nodeData){
+		nodeData.drainBattery(BATTERY_DRAIN_DELTA);
 	}
 	
 	private boolean isFirstCycle(){
@@ -83,13 +93,18 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 	}
 	
 	private double getContributionFactor(NodeData nodeData){		
-		return (nodeData.contributionLevel.getValue() / getValue());
+		return 1;//(nodeData.contributionLevel.getValue() / getValue());
 	}
 	
 	private double evalFitnessFunction(Node node){		
 		NodeData nodeData = NodeData.get(node);
-		return nodeData.batteryLevel.getValue() *
-				getContributionFactor(nodeData);
+		double FF =  
+			nodeData.gpsStatus.getValue() * 
+			nodeData.gpsLevel.getValue() * 			
+			nodeData.batteryLevel.getValue() *
+			getContributionFactor(nodeData);
+		System.out.println(FF);
+		return FF;
 	}
 	
 	private enum EventType{

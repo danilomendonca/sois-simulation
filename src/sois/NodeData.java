@@ -30,6 +30,9 @@ public class NodeData {
 	Map <Node, Double> fitnessScores;
 	Map <Node, Double> electedNodes;
 	BatteryLevel batteryLevel;
+	GPSLevel gpsLevel;
+	GPSStatus gpsStatus;
+	InternetStatus internetStatus;
 	ContributionLevel contributionLevel;
 
 	boolean inElection = false;
@@ -41,6 +44,9 @@ public class NodeData {
 		fitnessScores = new HashMap <Node, Double> ();
 		electedNodes = new HashMap <Node, Double> ();
 		batteryLevel = new BatteryLevel();
+		gpsLevel = new GPSLevel();
+		gpsStatus = new GPSStatus();
+		internetStatus = new InternetStatus();
 		contributionLevel= new ContributionLevel();
 	}
 	
@@ -70,6 +76,18 @@ public class NodeData {
 		electedNodes.put(winner, fitnessScores.get(winner));
 		setInElection(false);
 		System.out.println("Node " + node.getID() + ": We have a winner!!! Node " + winner.getID() + " with FS_e " + fitnessScores.get(winner));
+	}
+	
+	public void increamentContribution(float delta) {
+		contributionLevel.inc(delta);		
+	}
+	
+	public void drainBattery(float batteryDrainDelta) {
+		batteryLevel.use(batteryDrainDelta);
+	}
+	
+	public void tickGPS() {
+		gpsLevel.tickValue();
 	}
 
 	public List<Node> getLeavers(List<Node> currentPeers){
@@ -138,8 +156,6 @@ public class NodeData {
 		this.node = node;
 	}
 	
-	
-
 	public boolean isNewInGroup() {
 		return newInGroup;
 	}
@@ -155,7 +171,4 @@ public class NodeData {
 		inElection = peer.isInElection();
 	}
 
-	public void increamentContribution(float delta) {
-		contributionLevel.inc(delta);		
-	}
 }
