@@ -1,6 +1,6 @@
 # PEERSIM EXAMPLE 1
 
-SIZE 10
+SIZE 5
 ADD 0
 MIN_SIZE 2
 MAX_SIZE 10
@@ -14,7 +14,7 @@ network.size SIZE
  
 protocol.lnk IdleProtocol
 
-protocol.re sois.RoleElection
+protocol.re sois.RoleProtocol
 protocol.re.linkable lnk
 
 init.rnd WireKOut
@@ -46,4 +46,9 @@ control.1.maxsize MAX_SIZE
 
 control.2 sois.InitNodesData
 control.2.protocol lnk
+control.2.at 0
+
+control.3 sois.WriteResults
+control.3.protocol re
+control.3.FINAL
 

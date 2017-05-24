@@ -14,7 +14,7 @@ public class GPSStatus extends SingleValueHolder{
 	}
 	
 	public void initValue(){
-		setValue(CommonState.r.nextBoolean() ? GPS_ON : GPS_OFF);
+		setValue(CommonState.r.nextInt(10) > 3 ? GPS_ON : GPS_OFF);
 	}
 	
 	public boolean isOff(){

@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import peersim.core.Network;
 import peersim.core.Node;
 
 public class NodeData {
@@ -50,6 +49,11 @@ public class NodeData {
 		contributionLevel= new ContributionLevel();
 	}
 	
+	public void clearNodeReference(Node electedNode) {
+		fitnessScores.remove(electedNode);
+		electedNodes.remove(electedNode);
+	}
+	
 	public void receiveFS(Node updatedNode, Double FS_a) {
 		//System.out.println("Node " + node.getID() + ": FS for " + updatedNode.getID() + " have been updated with " + FS_a);
 		fitnessScores.put(updatedNode, FS_a);
@@ -58,13 +62,12 @@ public class NodeData {
 	}
 	
 	public boolean allScored(){
-		return fitnessScores.size() == Network.size();
+		return fitnessScores.size() >= peers.size();
 	}
 	
 	public void startElection() {
 		setInElection(true);
 		fitnessScores.clear();
-		electedNodes.clear();
 		System.out.println("Node " + node.getID() + ": Election started");
 	}
 	
@@ -73,9 +76,18 @@ public class NodeData {
 		for(Node node : fitnessScores.keySet())
 			if(winner == null || fitnessScores.get(node) > fitnessScores.get(winner))
 				winner = node;
-		electedNodes.put(winner, fitnessScores.get(winner));
+		
+		electNode(winner);
 		setInElection(false);
+	}
+	
+	public void electNode(Node winner){
+		electedNodes.put(winner, fitnessScores.get(winner));
 		System.out.println("Node " + node.getID() + ": We have a winner!!! Node " + winner.getID() + " with FS_e " + fitnessScores.get(winner));
+	}
+
+	public void updateFitnessScore(Node node, double FS_a) {
+		fitnessScores.put(node, FS_a);
 	}
 	
 	public void increamentContribution(float delta) {
