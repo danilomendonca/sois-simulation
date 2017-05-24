@@ -13,7 +13,7 @@ public class ContributionLevel extends SingleValueHolder{
 		setValue(0);
 	}
 	
-	public void use(float delta) {
+	public void inc(float delta) {
 		setValue(getValue() + delta);
 	}
 }

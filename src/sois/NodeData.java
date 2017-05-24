@@ -154,4 +154,8 @@ public class NodeData {
 		electedNodes = new HashMap <Node, Double> (peer.getElectedNodes());
 		inElection = peer.isInElection();
 	}
+
+	public void increamentContribution(float delta) {
+		contributionLevel.inc(delta);		
+	}
 }

@@ -29,22 +29,18 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		NodeData nodeData = NodeData.get(node);
 		
 		incrementGroupTime();
-		NodeData.get(node).contributionLevel.use(CONTRIBUTION_DELTA);
+		incrementContributionTime(nodeData);		
 
-		if(((int) CommonState.getTime()) == 0 || 
-				!nodeData.isNewInGroup())
+		if(isFirstCycle() || !nodeData.isNewInGroup())
 			if(nodeData.isInElection())			
 				joinElection(node, protocolID);
-			else
+			else{
 				checkForElectionConditions(nodeData, currentPeers, protocolID);
+				if(NodeData.get(node).isElected())
+					playRole(node);
+			}
 
 		nodeData.setNewInGroup(false);
-		
-		if(NodeData.get(node).isElected())
-			playRole(node);
-		
-		System.out.println(getContributionFactor(nodeData));
-		
 		nodeData.setPeers(currentPeers);
 	}
 	
@@ -67,16 +63,23 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 		}
 	}	
 	
-	private static final float BATTERY_DRAIN_DELTA = 0F;//1% each use
-	private static final float CONTRIBUTION_DELTA = 1F;//1 unit each use
+	private static final float BATTERY_DRAIN_DELTA = 0.01F;//1% each use
 	
 	private void playRole(Node node) {
-		NodeData.get(node).batteryLevel.use(BATTERY_DRAIN_DELTA);
-		NodeData.get(node).contributionLevel.use(-0.1F);
+		NodeData.get(node).batteryLevel.use(BATTERY_DRAIN_DELTA);		
 	}
+	private static final float CONTRIBUTION_DELTA = 1F;//1 unit each use
 	
 	private void incrementGroupTime() {
 		setValue(getValue() + CONTRIBUTION_DELTA);
+	}
+	
+	private void incrementContributionTime(NodeData nodeData) {
+		nodeData.increamentContribution(CONTRIBUTION_DELTA);
+	}
+	
+	private boolean isFirstCycle(){
+		return ((int) CommonState.getTime()) == 0;
 	}
 	
 	private double getContributionFactor(NodeData nodeData){		
@@ -89,16 +92,16 @@ public class RoleElection extends SingleValueHolder implements CDProtocol, EDPro
 				getContributionFactor(nodeData);
 	}
 	
-	private void receiveRegistry(Node thisNode, NodeData nodeDataToBeCopied, int protocolID){
-		NodeData thisNodeData = NodeData.get(thisNode);
-		thisNodeData.copy(nodeDataToBeCopied);
-		checkForElectionConditions(thisNodeData, getCurrentPeers(), protocolID);
-	}
-
 	private enum EventType{
 		VACANCY,
 		RESIGNATION,
 		CHALLENGE
+	}
+	
+	private void receiveRegistry(Node thisNode, NodeData nodeDataToBeCopied, int protocolID){
+		NodeData thisNodeData = NodeData.get(thisNode);
+		thisNodeData.copy(nodeDataToBeCopied);
+		checkForElectionConditions(thisNodeData, getCurrentPeers(), protocolID);
 	}
 	
 	private void triggerVacancy(Node node, int protocolID){
