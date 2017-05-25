@@ -9,7 +9,6 @@ import peersim.core.CommonState;
 import peersim.core.Linkable;
 import peersim.core.Network;
 import peersim.core.Node;
-import peersim.edsim.EDProtocol;
 import peersim.vector.SingleValueHolder;
 
 public class RoleProtocol extends SingleValueHolder implements CDProtocol{
@@ -19,7 +18,7 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 	}
 	
 	public static final boolean SOIS_ENABLED = true;
-	public static final double DELTA_PLUS = 1.2;
+	public static final double DELTA_PLUS = 1;
 	public static final double DELTA_MINUS = 2 - DELTA_PLUS;
 	private static final float CONTRIBUTION_DELTA = 1F;//1 unit each use
 	private static final float MINIMUM_BATTERY = 0.15F;
@@ -142,15 +141,7 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 			nodeData.gpsLevel.getValue() * 			
 			nodeData.batteryLevel.getValue() *
 			getContributionFactor(nodeData);
-		if(nodeData.isElected())
-			System.out.println(FF);
 		return FF;
-	}
-	
-	private enum EventType{
-		VACANCY,
-		RESIGNATION,
-		CHALLENGE
 	}
 	
 	private void receiveRegistry(Node thisNode, NodeData nodeDataToBeCopied, int protocolID){
@@ -215,46 +206,37 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 	
 	private void handleChallenge(Node node, Node challengerNode, double FS_c, int protocolID) {
 		double FS_a = evalFitnessFunction(node);
-		int linkableID = FastConfig.getLinkable(protocolID);
-        Linkable linkable = (Linkable) node.getProtocol(linkableID);
-		if(FS_a < FS_c)
-			for (int i=0; i<linkable.degree(); i++) {
-	            Node peer = linkable.getNeighbor(i);
+		if(FS_a < FS_c){
+			for (Node peer : NodeData.get(node).peers) {
 	            // Failure handling
 	            if (!peer.isUp())
 	                continue;
 	            RoleProtocol peerProtocol = (RoleProtocol) peer.getProtocol(protocolID);
-	            peerProtocol.handleChallengeWon(peer, challengerNode, FS_c);
+	            peerProtocol.handleChallengeWon(peer, node, challengerNode, FS_c);
 	        }
-		else{
+		}else{
 			RoleProtocol challengerNodeProtocol = (RoleProtocol) challengerNode.getProtocol(protocolID);
 			challengerNodeProtocol.handleChallengeLost(challengerNode, node, FS_a);
 		}
 	}
 	
-	private void handleChallengeWon(Node node, Node challengerNode, double FS_a){
+	private void handleChallengeWon(Node node, Node challengedNode, Node challengerNode, double FS_a){
 		System.out.println("Node " + node.getID() + ": node " + challengerNode.getID() + 
 				" has won the challenge and is now elected with FS " + FS_a);
-		NodeData nodeData = NodeData.get(challengerNode);
-		nodeData.updateFitnessScore(node, FS_a);
-		nodeData.finishElection();
+		NodeData nodeData = NodeData.get(node);
+		nodeData.replacePosition(challengedNode, challengerNode, FS_a);
 	}
 	
 	private void handleChallengeLost(Node node, Node electedNode, double FS_a){
 		System.out.println("Node " + node.getID() + ": has lost the challenge against elected node " + electedNode.getID());
 		NodeData nodeData = NodeData.get(node);
-		nodeData.electedNodes.clear();
-		nodeData.electedNodes.put(electedNode, FS_a);
-		
+		nodeData.updateFitnessScore(electedNode, FS_a);
 	}
 	
 	private void joinElection(Node node, int protocolID){
-		int linkableID = FastConfig.getLinkable(protocolID);
-        Linkable linkable = (Linkable) node.getProtocol(linkableID);
         Double FS_a = evalFitnessFunction(node);
         NodeData.get(node).receiveFS(node, FS_a);
-        for (int i=0; i<linkable.degree(); i++) {
-            Node peer = linkable.getNeighbor(i);
+        for (Node peer : NodeData.get(node).peers) {
             // Failure handling
             if (!peer.isUp())
                 continue;
@@ -265,11 +247,11 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 	
 	private void checkVacancy(NodeData nodeData, List <Node> currentPeers, int protocolId){
 		Node node = nodeData.getNode();
-		if(!nodeData.isInElection()){
-			if(nodeData.electedNodes.size() < OPEN_POSITIONS){				
-				if(!nodeData.electedNodes.isEmpty()){
+		if(!nodeData.isInElection() && !nodeData.isElected()){
+			if(nodeData.rolePositions.size() < OPEN_POSITIONS){				
+				if(!nodeData.rolePositions.isEmpty()){
 					List<Node> leavers = nodeData.getLeavers(currentPeers);
-					for(Node electedNode : nodeData.electedNodes.keySet())
+					for(Node electedNode : nodeData.getElectedNodes())
 						if(leavers.contains(electedNode)){
 							System.out.println("Vacancy detected; Elected node " + electedNode.getID() + " has quit");
 							triggerVacancy(node, electedNode, protocolId);
@@ -280,16 +262,13 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 				System.out.println("Node " + node.getID() + ": Vacancy detected; Role position has not yet been elected");
 				triggerVacancy(node, null, protocolId);
 			}
-		}else{
-			System.out.println("Node " + node.getID() + ": Vacancy detected; Role position has not yet been elected");
-			triggerVacancy(node, null, protocolId);
 		}
 	}
 	
 	private void checkResignation(NodeData nodeData, int protocolID){
 		Node node = nodeData.getNode();
-		if(!nodeData.isInElection()){
-			if(nodeData.electedNodes.containsKey(node)){
+		if(!nodeData.isInElection() && !nodeData.isElected()){
+			if(nodeData.isElected()){
 				/*Double FS_e = nodeData.electedNodes.get(node);
 				Double FS_a = evalFitnessFunction(node);
 				if(FS_a < FS_e * DELTA_MINUS){
@@ -303,17 +282,18 @@ public class RoleProtocol extends SingleValueHolder implements CDProtocol{
 	private void checkChallenge(NodeData nodeData, int protocolID){
 		Node node = nodeData.getNode();
 		Node toBeChallenged = null;
-		for(Node electedNode : nodeData.electedNodes.keySet()){
-			if(node.equals(electedNode))
-				continue;
-			Double FS_e = nodeData.electedNodes.get(electedNode);
-			Double FS_a = evalFitnessFunction(node);
-			if(FS_a >= FS_e * DELTA_PLUS){
-				System.out.println("Node " + node.getID() + ": has challenged elected node " + electedNode.getID());
-				toBeChallenged = electedNode;
-				return;
+		if(!nodeData.isInElection() && !nodeData.isElected())
+			for(RolePosition rolePosition : nodeData.getRolePositions()){
+				if(node.equals(rolePosition.getNode()))
+					continue;
+				Double FS_e = rolePosition.getFF_e();
+				Double FS_a = evalFitnessFunction(node);
+				if(FS_a >= FS_e * DELTA_PLUS){
+					System.out.println("Node " + node.getID() + ": has challenged elected node " + rolePosition.getNode().getID());
+					toBeChallenged = rolePosition.getNode();
+					break;
+				}
 			}
-		}
 		
 		if(toBeChallenged != null)
 			triggerChallenge(node, toBeChallenged, protocolID);

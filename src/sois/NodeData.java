@@ -27,7 +27,7 @@ public class NodeData {
 	private Node node;
 	List <Node> peers;
 	Map <Node, Double> fitnessScores;
-	Map <Node, Double> electedNodes;
+	List <RolePosition> rolePositions;
 	BatteryLevel batteryLevel;
 	GPSLevel gpsLevel;
 	GPSStatus gpsStatus;
@@ -41,7 +41,7 @@ public class NodeData {
 		this.node = node;
 		peers = new ArrayList<>();
 		fitnessScores = new HashMap <Node, Double> ();
-		electedNodes = new HashMap <Node, Double> ();
+		rolePositions = new ArrayList<RolePosition>();
 		batteryLevel = new BatteryLevel();
 		gpsLevel = new GPSLevel();
 		gpsStatus = new GPSStatus();
@@ -51,7 +51,7 @@ public class NodeData {
 	
 	public void clearNodeReference(Node electedNode) {
 		fitnessScores.remove(electedNode);
-		electedNodes.remove(electedNode);
+		rolePositions.remove(electedNode);
 	}
 	
 	public void receiveFS(Node updatedNode, Double FS_a) {
@@ -62,7 +62,7 @@ public class NodeData {
 	}
 	
 	public boolean allScored(){
-		return fitnessScores.size() >= peers.size();
+		return fitnessScores.size() == peers.size();
 	}
 	
 	public void startElection() {
@@ -74,7 +74,7 @@ public class NodeData {
 	public void finishElection(){
 		Node winner = null;
 		for(Node node : fitnessScores.keySet())
-			if(winner == null || fitnessScores.get(node) > fitnessScores.get(winner))
+			if(!isNodeElected(node)  && (winner == null || fitnessScores.get(node) > fitnessScores.get(winner)))
 				winner = node;
 		
 		electNode(winner);
@@ -82,7 +82,7 @@ public class NodeData {
 	}
 	
 	public void electNode(Node winner){
-		electedNodes.put(winner, fitnessScores.get(winner));
+		rolePositions.add(new RolePosition(winner, fitnessScores.get(winner)));
 		System.out.println("Node " + node.getID() + ": We have a winner!!! Node " + winner.getID() + " with FS_e " + fitnessScores.get(winner));
 	}
 
@@ -144,16 +144,41 @@ public class NodeData {
 		this.fitnessScores = fitnessScores;
 	}
 
-	public Map<Node, Double> getElectedNodes() {
+	public List<RolePosition> getRolePositions() {
+		return rolePositions;
+	}
+	
+	public RolePosition getRolePositionFF() {
+		
+		for(RolePosition rolePosition : rolePositions)
+			if(rolePosition.getNode().equals(node))
+				return rolePosition;
+						
+		return null;
+	}
+	
+	public List<Node> getElectedNodes(){
+		List<Node> electedNodes = new ArrayList<>();
+		for(RolePosition rolePosition : rolePositions)
+			electedNodes.add(rolePosition.getNode());
+		
 		return electedNodes;
 	}
 
-	public void setElectedNodes(Map<Node, Double> electedNodes) {
-		this.electedNodes = electedNodes;
+	public void setRolePositions(List<RolePosition> electedNodes) {
+		this.rolePositions = electedNodes;
 	}
 
 	public boolean isElected() {
-		return electedNodes.containsKey(node);
+		return isNodeElected(node);
+	}		
+	
+	public boolean isNodeElected(Node node){
+		for(RolePosition rp : rolePositions)
+			if(rp.getNode().equals(node))
+				return true;
+		
+		return false;
 	}
 
 	public static boolean hasNode(Node node) {
@@ -179,8 +204,21 @@ public class NodeData {
 	public void copy(NodeData peer) {
 		peers = new ArrayList<>(peer.getPeers());
 		fitnessScores = new HashMap <Node, Double> (peer.getFitnessScores());
-		electedNodes = new HashMap <Node, Double> (peer.getElectedNodes());
+		rolePositions = new ArrayList<RolePosition> (peer.getRolePositions());
 		inElection = peer.isInElection();
+	}
+
+	public void replacePosition(Node challendgedNode, Node challengerNode, double FS_a) {
+		
+		RolePosition toBeRemoved = null;
+		for(RolePosition position : rolePositions)
+			if(position.getNode().equals(challendgedNode))
+				toBeRemoved = position;
+				
+		if(toBeRemoved != null)
+			rolePositions.remove(toBeRemoved);
+		updateFitnessScore(challengerNode, FS_a);
+		finishElection();
 	}
 
 }

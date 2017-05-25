@@ -1,12 +1,12 @@
 # PEERSIM EXAMPLE 1
 
-SIZE 5
+SIZE 10
 ADD 0
 MIN_SIZE 2
 MAX_SIZE 10
 
 random.seed 1234567890
-simulation.cycles 100
+simulation.cycles 50
 
 control.shf Shuffle
 
